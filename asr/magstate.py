@@ -62,7 +62,7 @@ def webpanel(result, row, key_descriptions):
                         in enumerate(zip(row.get('symbols'), result.magmoms))]
         magmoms_table = {'type': 'table',
                          'header': ['Atom index', 'Atom type',
-                                    'Local magnetic moment (au)'],
+                                    'Local magnetic moment (μ<sub>B</sub>)'],
                          'rows': magmoms_rows}
 
         from asr.utils.hacks import gs_xcname_from_row
