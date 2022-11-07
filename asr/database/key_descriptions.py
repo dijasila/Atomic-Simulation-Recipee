@@ -212,7 +212,7 @@ key_descriptions = {
         'KVP: Conduction band effective mass, direction 3 [`m_e`]',
     },
     "c2db.labels": {
-        "label": f"KVP: {label_explanation}"
+        "origin": f"KVP: {label_explanation}"
     },
     "database.fromtree": {
         "folder": "KVP: Path to collection folder",
