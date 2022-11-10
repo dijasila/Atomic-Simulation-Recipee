@@ -258,7 +258,7 @@ def main(index: int = None) -> Result:
     ev = calc_def.get_eigenvalues()
     e_fermi = calc_def.get_fermi_level()
     N_homo_q = get_homo_index(ev, e_fermi)
-    transition_list = calculate_transitions(index, N_homo_q)
+    transition_list = calculate_transitions(index, N_homo_q, defectinfo)
 
     # get pristine band edges for correct referencing and plotting
     pristine = get_pristine_band_edges(index)
@@ -356,38 +356,41 @@ def get_heat_of_formation(db, atoms):
     return hof
 
 
-def calculate_transitions(index, N_homo_q):
+def calculate_transitions(index, N_homo_q, defectinfo):
     """Calculate all of the present transitions and return TransitionResults."""
     transition_list = []
     # First, get IP and EA (charge transition levels for the neutral defect
     if Path('./sj_+0.5/gs.gpw').is_file() and Path('./sj_-0.5/gs.gpw').is_file():
         for delta in [+1, -1]:
             transition = [0, delta]
-            transition_results = get_transition_level(transition, 0, index, N_homo_q)
+            transition_results = get_transition_level(
+                transition, 0, index, N_homo_q, defectinfo)
             transition_list.append(transition_results)
 
     for q in [-3, -2, -1, 1, 2, 3]:
         if q > 0 and Path('./../charge_{}/sj_+0.5/gs.gpw'.format(q)).is_file():
             transition = [q, q + 1]
-            transition_results = get_transition_level(transition, q, index, N_homo_q)
+            transition_results = get_transition_level(
+                transition, q, index, N_homo_q, defectinfo)
             transition_list.append(transition_results)
         if q < 0 and Path('./../charge_{}/sj_-0.5/gs.gpw'.format(q)).is_file():
             transition = [q, q - 1]
-            transition_results = get_transition_level(transition, q, index, N_homo_q)
+            transition_results = get_transition_level(
+                transition, q, index, N_homo_q, defectinfo)
             transition_list.append(transition_results)
 
     return transition_list
 
 
-def get_pristine_band_edges(index) -> PristineResults:
+def get_pristine_band_edges(index, defectinfo) -> PristineResults:
     """Return band edges and vaccum level for the host system."""
-    from asr.get_wfs import (return_defect_index,
-                             get_reference_index,
+    from asr.get_wfs import (get_reference_index,
                              extract_atomic_potentials)
     from asr.core import read_json
 
     # return index of the point defect in the defect structure
-    def_index, is_vacancy = return_defect_index()
+    def_index = defectinfo.specs[0]
+    is_vacancy = defectinfo.is_vacancy(defectinfo.names[0])
 
     # get calculators and atoms for pristine and defect calculation
     p = Path('.')
@@ -422,7 +425,7 @@ def get_pristine_band_edges(index) -> PristineResults:
 def obtain_chemical_potential(symbol, db):
     """Extract the standard state of a given element."""
     energies_ss = []
-    if symbol == 'v':
+    if symbol == 'v' or symbol == 'i':
         eref = 0.
     else:
         for row in db.select(symbol, ns=1):
@@ -442,14 +445,15 @@ def calculate_neutral_formation_energy(etot_def, etot_pris, db, defectinfo):
     """
     eform = etot_def - etot_pris
     # next, extract standard state energies for particular defect
-    def_add = defectinfo.defecttype
-    def_remove = defectinfo.defectkind
-    # extract standard states of defect atoms from OQMD
-    standard_states = []
-    standard_states.append(obtain_chemical_potential(def_add, db))
-    standard_states.append(obtain_chemical_potential(def_remove, db))
-
-    eform = eform - standard_states[0].eref + standard_states[1].eref
+    for defect in defectinfo.names:
+        def_add, def_remove = defectinfo.get_defect_type_and_kind_from_defectname(
+            defect)
+        # extract standard states of defect atoms from OQMD
+        standard_states = []
+        standard_states.append(obtain_chemical_potential(def_add, db))
+        standard_states.append(obtain_chemical_potential(def_remove, db))
+        # add, subtract chemical potentials to/from formation energy
+        eform = eform - standard_states[0].eref + standard_states[1].eref
 
     return eform, standard_states
 
@@ -503,20 +507,21 @@ def get_transition_energy(evs, index):
     return evs[index]
 
 
-def get_transition_level(transition, charge, index, N_homo_q) -> TransitionResults:
+def get_transition_level(transition,
+                         charge,
+                         index,
+                         N_homo_q,
+                         defectinfo) -> TransitionResults:
     """Calculate the charge transition level for a given charge transition."""
-    from asr.get_wfs import (return_defect_index,
-                             get_reference_index,
+    from asr.get_wfs import (get_reference_index,
                              extract_atomic_potentials)
     from asr.defect_symmetry import DefectInfo
-    from ase.io import read
 
     # return index of the point defect in the defect structure
     p = Path('.')
     defectinfo = DefectInfo(defectpath=p)
-    structure = read('structure.json')
-    primitive = read('../../unrelaxed.json')
-    def_index, is_vacancy = return_defect_index(defectinfo, primitive, structure)
+    def_index = defectinfo.specs[0]
+    is_vacancy = defectinfo.is_vacancy(defectinfo.names[0])
 
     # get string of the current charge
     charge = str(charge)

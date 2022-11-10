@@ -26,52 +26,6 @@ def test_return_erange_states(ef, emin, emax):
         assert len(states) == 0
 
 
-@pytest.mark.xfail
-@pytest.mark.parametrize('setup_method', ['uni', 'gen'])
-@pytest.mark.ci
-def test_return_defect_index(asr_tmpdir, setup_method):
-    # XXX port from oldmaster
-    from pathlib import Path
-    from .materials import BN
-    from ase.io import read, write
-    from asr.setup.defects import main as setup
-    from asr.get_wfs import return_defect_index
-    from asr.defect_symmetry import DefectInfo
-
-    results = {'v_B': (0, True),
-               'v_N': (1, True),
-               'N_B': (0, False),
-               'B_N': (1, False)}
-
-    primitive = BN.copy()
-    write('unrelaxed.json', primitive)
-    if setup == 'uni':
-        setup()
-    else:
-        setup(general_algorithm=15.)
-    p = Path('.')
-    pathlist = list(p.glob('defects.*/charge_0/'))
-    for path in pathlist:
-        defname = str(path.absolute()).split('/')[-2].split('.')[-1]
-        structure = read(path / 'unrelaxed.json')
-        defectinfo = DefectInfo(defectpath=path)
-        def_index, is_vacancy = return_defect_index(
-            defectinfo, primitive, structure)
-
-        assert results[defname][0] == def_index
-        assert results[defname][1] == is_vacancy
-
-    pristine = primitive.repeat((3, 3, 1))
-    try:
-        def_index, is_vacancy = return_defect_index(
-            defectinfo, primitive, pristine)
-    except AssertionError:
-        # function should fail with an assertion error
-        # when the input is not a defect structure but
-        # a pristine one
-        assert True
-
-
 @pytest.mark.parametrize('gap', np.arange(0, 2.01, 20))
 @pytest.mark.ci
 def test_get_above_below(gap):

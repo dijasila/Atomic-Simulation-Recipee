@@ -18,6 +18,7 @@ from asr.core import (
     command, option, ASRResult, prepare_result, AtomsFile,
     Selector,
 )
+from asr.utils.symmetry import c2db_symmetry_eps
 from asr.database.browser import (
     table, fig, describe_entry, dl, make_panel_description)
 
@@ -150,7 +151,7 @@ class Result(ASRResult):
     interp_freqs_kl: typing.List[typing.List[float]]
 
     key_descriptions = {
-        "minhessianeig": "KVP: Minimum eigenvalue of Hessian [`eV/Å²`]",
+        "minhessianeig": "Minimum eigenvalue of Hessian [eV/Å²]",
         "dynamic_stability_phonons": "Phonon dynamic stability (low/high)",
         "q_qc": "List of momenta consistent with supercell.",
         "omega_kl": "Phonon frequencies.",
@@ -272,7 +273,8 @@ def main(
     mineig = np.min(eigs)
 
     # Next calculate an approximate phonon band structure
-    path = atoms.cell.bandpath(npoints=100, pbc=atoms.pbc)
+    path = atoms.cell.bandpath(npoints=100, pbc=atoms.pbc,
+                               eps=c2db_symmetry_eps)
     freqs_kl = phonons.band_structure(path.kpts, modes=False, born=False,
                                       verbose=False)
 

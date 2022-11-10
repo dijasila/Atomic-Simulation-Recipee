@@ -14,6 +14,7 @@ from asr.core import (command, option, DictStr, ASRResult, prepare_result,
                       atomsopt)
 from asr.calculators import construct_calculator
 from asr.c2db.magstate import main as magstate
+from asr.utils.symmetry import c2db_symmetry_eps
 
 
 def lattice_vectors(N_c):
@@ -28,7 +29,10 @@ def lattice_vectors(N_c):
     return R_cN
 
 
-def distance_to_sc(nd, atoms, dist_max):
+def distance_to_sc(atoms, dist_max):
+    nd = sum(atoms.pbc)
+    assert all(atoms.pbc[:nd])
+
     if nd >= 1:
         for x in range(2, 20):
             atoms_x = atoms.repeat((x, 1, 1))
@@ -68,6 +72,19 @@ def distance_to_sc(nd, atoms, dist_max):
     return supercell
 
 
+def sc_to_supercell(atoms, sc, dist_max):
+    sc = np.array(sc)
+
+    if not sc.any():
+        sc = np.array(distance_to_sc(atoms, dist_max))
+
+    assert all(sc >= 1)
+    assert sc.dtype == int
+    assert all(sc[~atoms.pbc] == 1)
+
+    return np.diag(sc)
+
+
 @command(
     "asr.c2db.phonopy",
 )
@@ -83,7 +100,7 @@ def distance_to_sc(nd, atoms, dist_max):
 def calculate(
         atoms: Atoms,
         d: float = 0.05, fsname: str = 'phonons',
-        sc: typing.List[int] = [0, 0, 0], dist_max: float = 7.0,
+        sc: typing.Sequence[int] = (0, 0, 0), dist_max: float = 7.0,
         calculator: dict = {'name': 'gpaw',
                             'mode': {'name': 'pw', 'ecut': 800},
                             'xc': 'PBE',
@@ -117,17 +134,7 @@ def calculate(
             magmoms_m = np.linalg.norm(magmoms_m, axis=1)
         atoms.set_initial_magnetic_moments(magmoms_m)
 
-    nd = sum(atoms.get_pbc())
-    sc = list(map(int, sc))
-    if np.array(sc).any() == 0:
-        sc = distance_to_sc(nd, atoms, dist_max)
-
-    if nd == 3:
-        supercell = [[sc[0], 0, 0], [0, sc[1], 0], [0, 0, sc[2]]]
-    elif nd == 2:
-        supercell = [[sc[0], 0, 0], [0, sc[1], 0], [0, 0, 1]]
-    elif nd == 1:
-        supercell = [[sc[0], 0, 0], [0, 1, 0], [0, 0, 1]]
+    supercell = sc_to_supercell(atoms, sc, dist_max)
 
     phonopy_atoms = PhonopyAtoms(symbols=atoms.symbols,
                                  cell=atoms.get_cell(),
@@ -232,7 +239,7 @@ class Result(ASRResult):
 
     key_descriptions = {
         "omega_kl": "Phonon frequencies.",
-        "minhessianeig": "Minimum eigenvalue of Hessian [`eV/Å²`]",
+        "minhessianeig": "Minimum eigenvalue of Hessian [eV/Å²]",
         "eigs_kl": "Dynamical matrix eigenvalues.",
         "q_qc": "List of momenta consistent with supercell.",
         "phi_anv": "Force constants.",
@@ -288,17 +295,7 @@ def main(
     dist_max = params["dist_max"]
     fsname = params["fsname"]
 
-    nd = sum(atoms.get_pbc())
-
-    sc = list(map(int, sc))
-    if np.array(sc).any() == 0:
-        sc = distance_to_sc(nd, atoms, dist_max)
-    if nd == 3:
-        supercell = [[sc[0], 0, 0], [0, sc[1], 0], [0, 0, sc[2]]]
-    elif nd == 2:
-        supercell = [[sc[0], 0, 0], [0, sc[1], 0], [0, 0, 1]]
-    elif nd == 1:
-        supercell = [[sc[0], 0, 0], [0, 1, 0], [0, 0, 1]]
+    supercell = sc_to_supercell(atoms, sc, dist_max)
 
     phonopy_atoms = PhonopyAtoms(
         symbols=atoms.symbols,
@@ -339,7 +336,8 @@ def main(
     phonon.symmetrize_force_constants()
 
     nqpts = 100
-    path = atoms.cell.bandpath(npoints=nqpts, pbc=atoms.pbc)
+    path = atoms.cell.bandpath(npoints=nqpts, pbc=atoms.pbc,
+                               eps=c2db_symmetry_eps)
 
     omega_kl = np.zeros((nqpts, 3 * len(atoms)))
 

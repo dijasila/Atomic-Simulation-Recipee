@@ -243,7 +243,7 @@ def fix_asr_gs_result_missing_calculator(
     result: typing.Any,
     instruction_name: str,
 ) -> typing.Any:
-    """Fix ground state "calculate" results that didn't store the result as an ASRResult.
+    """Fix ground state "calculate" results that didn't store result as ASRResult.
 
     Parameters
     ----------

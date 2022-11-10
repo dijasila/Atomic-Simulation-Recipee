@@ -156,12 +156,16 @@ def get_overview_tables(scresult, result, unitstring):
 
 def get_conc_table(result, element, unitstring):
     from asr.database.browser import table, describe_entry
+    from asr.defectlinks import get_defectstring_from_defectinfo
 
-    name = element['defect_name']
-    def_type = name.split('_')[0]
-    def_name = name.split('_')[1]
+    token = element['defect_name']
+    defectinfo = DefectInfo(defecttoken=token)
+    defectstring = get_defectstring_from_defectinfo(
+        defectinfo, charge=0)  # charge is only a dummy parameter here
+    # remove the charge string from the defectstring again
+    clean_defectstring = defectstring.split('(charge')[0]
     scf_table = table(result, f'Eq. concentrations of '
-                              f'{def_type}<sub>{def_name}</sub> [{unitstring}]', [])
+                              f'{clean_defectstring} [{unitstring}]', [])
     for altel in element['concentrations']:
         if altel[0] > 1e1:
             scf_table['rows'].extend(
@@ -189,7 +193,7 @@ class ConcentrationResult(ASRResult):
     concentrations: typing.List[typing.Tuple[float, float, int]]
 
     key_descriptions = dict(
-        defect_name='Name of the defect ({position}_{type}).',
+        defect_name='Name of the defect (see "defecttoken" of DefectInfo).',
         concentrations='List of concentration tuples containing (conc., eform @ SCEF, '
                        'chargestate).')
 
@@ -237,17 +241,36 @@ class Result(ASRResult):
 
 
 # @command(module='asr.charge_neutrality',
-#         requires=['gs.gpw'],
-#         dependencies=['asr.gs@calculate'],
-#         resources='1:10m',
-#         returns=ASRResult)
-# @option('--temp', help='Temperature [K]', type=float)
-# @option('--defects', help='Defect dictionary.', type=DictStr())
-# @option('--dosfile', help='DOS results file. DOS will be generated '
-#         'from gs.gpw if no DOS results file is given.', type=str)
-def main(temp: float = 300,
+#          requires=['gs.gpw'],
+#          dependencies=['asr.gs@calculate'],
+#          resources='1:10m',
+#          returns=ASRResult)
+# @option('--temp1', help='Synthesis temperature at which defects got created [K].',
+#         type=float)
+# @option('--temp2', help='Evaluation temperature at which charge neutrality is '
+#         'evaluated [K]. If no input is given (i.e. temp2=-1), '
+#         'it will default to T1.', type=float)
+# @option('--defects', help='Defect dictionary. If no dict is given '
+#         'as an input, the self-consistency will be run for defect '
+#         'formation energies extracted from the asr.sj_analyze Recipe.',
+#         type=DictStr())
+# @option('--ni', help='Set a fixed background concentration '
+#         'which should be considered for the self-consitent evaluation '
+#         'in cm^{-d} where d is the dimensionality of the system. Positive '
+#         'values for holes, negative values for electrons.', type=float)
+# @option('--mu', help='Chemical potentials. If no dict is given '
+#         'as an input, the self-consistency will be run for the input '
+#         'defect dictionary.', type=DictStr())
+# @option('--cornerpoints/--no-cornerpoints',
+#         help='Evaluate charge neutrality at chemical potential '
+#         'region cornerpoints evaluated from asr.chemical_potential '
+#         'Recipe.', is_flag=True)
+def main(temp1: float = 300,
+         temp2: float = -1,
          defects: dict = {},
-         dosfile: str = '') -> ASRResult:
+         ni: float = 0.0,
+         mu: dict = {},
+         cornerpoints: bool = False) -> ASRResult:
     """Calculate self-consistent Fermi energy for defect systems.
 
     This recipe calculates the self-consistent Fermi energy for a
@@ -266,32 +289,61 @@ def main(temp: float = 300,
     else:
         inputdict = defects
 
+    # if T2 = -1, set T2 equal to T1. Otherwise, simply use input T2
+    if temp2 == -1:
+        temp2 = temp1
+
     # evaluate host crystal elements and hof
     host = read('../unrelaxed.json')
-    el_list = get_element_list(host)
-    hof = get_hof_from_sj_results()
+    # el_list = get_element_list(host)
 
     # read in pristine ground state calculation and evaluate,
     # renormalize density of states
-    if dosfile == '':
-        atoms, calc = restart('gs.gpw', txt=None)
-        dos, EF, gap = get_dos(calc)
+    atoms, calc = restart('gs.gpw', txt=None)
+    dos, EF, gap = get_dos(calc)
     dos = renormalize_dos(calc, dos, EF)
 
     # Calculate initial electron and hole carrier concentration
-    n0, p0 = integrate_electron_hole_concentration(dos, EF, gap, temp)
+    n0, p0 = integrate_electron_hole_concentration(dos, EF, gap, temp2)
 
     unit = get_concentration_unit(host)
 
+    # handle the different usages, either with cornerpoints, input chemical
+    # potential dictionary, or none of the above
+    if cornerpoints and mu != {}:
+        raise TypeError('give either cornerpoints or mu-dict as input, not both!')
+    elif cornerpoints:
+        # TO BE IMPLEMENTED (JIBAN)
+        resfile = ''
+        mus = extract_cornerpoints(resfile)
+        # TO BE IMPLEMENTED (JIBAN)
+        adjust_eform = True
+    elif mu != {}:
+        mus = {'custom-chem.-pot.': mu}
+        adjust_eform = True
+    else:
+        # dummy element
+        mus = {'standard-states': 0}
+        adjust_eform = False
+    # note, that this can be a list with only one element solely for QPOD compatibility
+    # and such that the old results will not be broken
     sc_results = []
-    for element in el_list:
-        defectdict = adjust_formation_energies(host, inputdict, element, hof)
+    # convert units for input fixed concentration
+    ni = convert_concentration_units(ni, atoms, True)
+    for element in mus:
+        # FIX - this needs to be adjusted once chemical potential recipe is ready
+        if adjust_eform:
+            defectdict = adjust_formation_energies(inputdict, mu)
+            print(f'INFO: adjusted formation energies for {element}-conditions:')
+            print(defectdict)
+        else:
+            defectdict = inputdict.copy()
         # Initialize self-consistent loop for finding Fermi energy
         E, d, i, maxsteps, E_step, epsilon, converged = initialize_scf_loop(gap)
         # Start the self-consistent loop
         while (i < maxsteps):
             E = get_new_sample_point(E, E_step, d)
-            n0, p0 = integrate_electron_hole_concentration(dos, E, gap, temp)
+            n0, p0 = integrate_electron_hole_concentration(dos, E, gap, temp2)
             # initialise lists for concentrations and charges
             conc_list = []
             charge_list = []
@@ -303,10 +355,10 @@ def main(temp: float = 300,
                     conc_def = calculate_defect_concentration(eform,
                                                               sites,
                                                               degeneracy,
-                                                              temp)
+                                                              temp1)
                     conc_list.append(conc_def)
                     charge_list.append(defect[1])
-            delta_new = calculate_delta(conc_list, charge_list, n0, p0)
+            delta_new = calculate_delta(conc_list, charge_list, n0, p0, ni)
             converged = check_convergence(delta_new, conc_list, n0, p0, E_step, epsilon)
             if converged:
                 break
@@ -322,7 +374,7 @@ def main(temp: float = 300,
             n0, p0 = integrate_electron_hole_concentration(dos,
                                                            E,
                                                            gap,
-                                                           temp)
+                                                           temp2)
             n0 = convert_concentration_units(n0, atoms)
             p0 = convert_concentration_units(p0, atoms)
             concentration_results = []
@@ -331,7 +383,7 @@ def main(temp: float = 300,
                 for defect in defectdict[defecttype]:
                     eform = get_formation_energy(defect, E)
                     conc_def = calculate_defect_concentration(eform, sites, degeneracy,
-                                                              temp)
+                                                              temp1)
                     conc_def = convert_concentration_units(conc_def, atoms)
                     concentration_tuples.append((conc_def, int(defect[1]), eform))
                 concentration_result = ConcentrationResult.fromdata(
@@ -340,12 +392,18 @@ def main(temp: float = 300,
                 concentration_results.append(concentration_result)
         else:
             raise RuntimeError('self-consistent E_F evaluation failed '
-                               f'for {element}-poor conditions!')
+                               f'for {element} conditions!')
 
         dopability = get_dopability_type(E, gap)
 
+        if E < 0 or E > gap:
+            raise RuntimeError(
+                f'{element} conditions, the self-consistent Fermi '
+                'level position is outside the pristine band gap. Check your inputs, '
+                'in particular the input intrinsic carrier concentration "ni"!')
+
         sc_results.append(SelfConsistentResult.fromdata(
-            condition=f'{element}-poor',
+            condition=element,
             efermi_sc=E,
             n0=n0,
             p0=p0,
@@ -354,9 +412,79 @@ def main(temp: float = 300,
 
     return Result.fromdata(
         scresults=sc_results,
-        temperature=temp,
+        temperature=temp2,
         conc_unit=unit,
         gap=gap)
+
+
+def extract_cornerpoints(resfile):
+    """Extract cornerpoints from chemical potential Recipe."""
+    # TODO: @Jiban, please implement the fucntionality here once
+    #       your Recipe is in place
+    return None
+
+
+def return_mu_remove_add(element, mu):
+    """
+    Return chem. pot. contribution (mu_add, mu_remove) to formation energy.
+
+    Returns mu_i * n_i where i is the defect species based on the name of
+    the defect in 'element'.
+
+    examples: * for vacancies: return mu_remove and set mu_add to zero
+              * for substitutional defects: return both mu_remove and mu_add
+              * for interstitials: return mu_add and set mu_remove to zero
+
+    Note, that this function can currently just handle simple point defects and
+    no defect complexes.
+    """
+    add = element.split('_')[0]
+    remove = element.split('_')[1]
+    if add == 'v':
+        mu_add = 0
+        mu_remove = mu[remove]
+    elif add == 'i':
+        mu_add = mu[remove]
+        mu_remove = 0
+    else:
+        mu_add = mu[add]
+        mu_remove = mu[remove]
+
+    return mu_add, mu_remove
+
+
+def extrapolate_formation(mu, eform_old, project_zero=False):
+    """
+    Return formation energies extrapolated to given chem. pot. values.
+
+    Similar to 'return_formation_zerospace' but instead of mapping from
+    reference to zero chemical potential space it maps from zero chemical
+    potential space to mu space.
+    """
+    # set sign of chemical potential addition and removal based on whether
+    # we project formation energy back to zero space (sign = -1) or
+    # extrapolate it from zero space to a certain chemical potential value
+    # (sign = +1)
+    if project_zero:
+        sign = -1
+    else:
+        sign = +1
+
+    # define new dictionary of formation energies and calculate
+    # extrapolated new values
+    eform_new = {}
+    for element in eform_old:
+        mu_add, mu_remove = return_mu_remove_add(element, mu)
+        oldform = eform_old[element]
+        newform = []
+        for element2 in oldform:
+            form = element2[0]
+            charge = element2[1]
+            new = form - sign * (mu_add - mu_remove)
+            newform.append((new, charge))
+        eform_new[f'{element}'] = newform
+
+    return eform_new
 
 
 def check_convergence(delta, conc_list, n0, p0, E_step, epsilon):
@@ -452,24 +580,34 @@ def obtain_chemical_potential(symbol, db):
     return eref
 
 
-def adjust_formation_energies(host, defectdict, element, hof):
-    """Return defect dict in X-poor conditions given a defect dict @ stand. states."""
+def adjust_formation_energies(defectdict, mu):
+    """Return defect dict extrapolated to mu chemical potential conditions."""
     newdict = {}
-    sstates = get_adjusted_chemical_potentials(host, hof, element)
-    for defect in defectdict:
-        defectinfo = DefectInfo(defectname=defect)
-        def_type = defectinfo.defecttype
-        def_pos = defectinfo.defectkind
-        if def_type == 'v':
-            add = 0
-        else:
-            add = sstates[f'{def_type}']
-        remove = sstates[f'{def_pos}']
+    # sstates = get_adjusted_chemical_potentials(host, hof, element)
+    for defecttoken in defectdict:
+        defectinfo = DefectInfo(defecttoken=defecttoken)
+        defects = defectinfo.names
+        # write adjusted formation energy for defect/defectcomplex to new dict
         tuple_list = []
-        for tpl in defectdict[f'{defect}']:
-            tuple_list.append((tpl[0] - add + remove,
+        for tpl in defectdict[f'{defecttoken}']:
+            eform = tpl[0]
+            for defectname in defects:
+                def_type, def_pos = defectinfo.get_defect_type_and_kind_from_defectname(
+                    defectname)
+                if def_type == 'v':
+                    add = 0
+                    remove = mu[f'{def_pos}']
+                elif def_pos == 'i':
+                    add = mu[f'{def_type}']
+                    remove = 0
+                else:
+                    add = mu[f'{def_type}']
+                    remove = mu[f'{def_pos}']
+                # adjust formation energy for defects one by one
+                eform = eform - add + remove
+            tuple_list.append((eform,
                                tpl[1]))
-        newdict[f'{defect}'] = tuple_list
+        newdict[f'{defecttoken}'] = tuple_list
 
     return newdict
 
@@ -496,11 +634,12 @@ def get_element_list(atoms):
     return symbollist
 
 
-def convert_concentration_units(conc, atoms):
+def convert_concentration_units(conc, atoms, invert=False):
     """
-    Convert concentration to units on cm^-n.
+    Convert concentration to units of cm^-n.
 
-    Note, that n is the dimensionality of the system.
+    Note, that n is the dimensionality of the system. If invert is
+    set to True, it does the inversion from cm^-n to per supercell.
     """
     volume = atoms.get_volume()
     dim = sum(atoms.pbc)
@@ -516,7 +655,10 @@ def convert_concentration_units(conc, atoms):
         volume = volume / z
     elif dim == 3:
         volume = volume
-    conc = conc / (volume * (ang_to_cm ** dim))
+    if invert:
+        conc = conc * (volume * (ang_to_cm ** dim))
+    else:
+        conc = conc / (volume * (ang_to_cm ** dim))
 
     return conc
 
@@ -531,13 +673,13 @@ def fermi_dirac_holes(E, EF, T):
     return 1 - fermi_dirac_electrons(E, EF, T)
 
 
-def calculate_delta(conc_list, chargelist, n0, p0):
+def calculate_delta(conc_list, chargelist, n0, p0, ni):
     """
     Calculate charge balance for current energy.
 
     delta = n_0 - p_0 - sum_X(sum_q C_{X^q}).
     """
-    delta = n0 - p0
+    delta = n0 - p0 + ni
     for i, c in enumerate(conc_list):
         delta = delta - c * chargelist[i]
 
@@ -860,6 +1002,8 @@ def plot_lowest_lying(ax, array_in, ef, gap, name, color):
     ys = [array_tmp[0, 0]]
     index, xs, ys = get_line_segment(array_tmp, 0, xs, ys, gap)
     for i in range(len(array_tmp)):
+        if len(array_tmp[:, 0]) <= 1:
+            break
         index, xs, ys = get_line_segment(array_tmp, index, xs, ys, gap)
         if index == len(array_tmp):
             break

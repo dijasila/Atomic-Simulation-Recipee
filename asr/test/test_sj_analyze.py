@@ -107,15 +107,31 @@ def test_obtain_chemical_potential(asr_tmpdir, symbol):
 
 @pytest.mark.parametrize('edef', [-1, 0.5])
 @pytest.mark.parametrize('epris', [-2, -0.5])
+@pytest.mark.parametrize('token',
+                         ['v_Ag',
+                          'Ag_Ag',
+                          'v_Ag.v_Ag.0-1',
+                          'v_Ag.Ag_Ag.0-2',
+                          'Ag_i.Ag_i.0-3'])
 @pytest.mark.ci
-def test_calculate_neutral_formation_energy(asr_tmpdir, edef, epris):
+def test_calculate_neutral_formation_energy(asr_tmpdir, edef, epris, token):
     ref_db = create_reference_db()
-    defectinfo = DefectInfo(defecttype='v', defectkind='Ag')
+    defectinfo = DefectInfo(defecttoken=token)
     eform, standard_states = calculate_neutral_formation_energy(
         edef, epris, ref_db, defectinfo)
 
     ref_Ag = obtain_chemical_potential('Ag', ref_db)
-    eform_ref = edef - epris + ref_Ag['eref']
+    if token == 'v_Ag':
+        shift = ref_Ag['eref']
+    elif token == 'Ag_Ag':
+        shift = 0
+    elif token == 'v_Ag.v_Ag.0-1':
+        shift = 2 * ref_Ag['eref']
+    elif token == 'v_Ag.Ag_Ag.0-2':
+        shift = ref_Ag['eref']
+    elif token == 'Ag_i.Ag_i.0-3':
+        shift = -2 * ref_Ag['eref']
+    eform_ref = edef - epris + shift
 
     assert eform == pytest.approx(eform_ref)
 

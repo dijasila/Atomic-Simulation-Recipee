@@ -114,6 +114,13 @@ def webpanel(result, context):
     key_descriptions = context.descriptions
     parameter_description = context.parameter_description_picky('asr.c2db.gs')
 
+    # There used to be a hack here preventing this panel from being
+    # shown with "defects".  That should probably be reinstated in one
+    # form or another at some point.
+    #
+    # The right way would be equip the caller with enough wisdom to
+    # /not/ call this function in the first place.
+
     def make_gap_row(name):
         value = result[name]
         description = _explain_bandgap(name, parameter_description)

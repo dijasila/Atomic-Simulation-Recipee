@@ -4,80 +4,27 @@ from .materials import std_test_materials
 from asr.charge_neutrality import convert_concentration_units
 
 
-@pytest.mark.parametrize('reduced', [True, False])
+mu_ref = {'B': -0.1, 'N': -0.2}
+
+
+@pytest.mark.parametrize('defect', ['v_N', 'v_B', 'N_B',
+                                    'N_B.v_N.0-3'])
 @pytest.mark.ci
-def test_get_stoichiometry(reduced):
-    from asr.charge_neutrality import get_stoichiometry
-
-    materials = std_test_materials.copy()
-    results = {'Si2': {'Si': 2},
-               'BN': {'B': 1, 'N': 1},
-               'Ag': {'Ag': 1},
-               'Fe': {'Fe': 1}}
-    for atom in materials:
-        stoi = get_stoichiometry(atom, reduced=reduced)
-        for el in stoi:
-            ref = results[f'{atom.get_chemical_formula()}']
-            if reduced and atom.get_chemical_formula() == 'Si2':
-                assert stoi[el] == 1
-            else:
-                assert ref[el] == stoi[el]
-
-
-@pytest.mark.parametrize('atoms', std_test_materials.copy())
-@pytest.mark.ci
-def test_get_element_list(atoms):
-    from asr.charge_neutrality import get_element_list
-
-    element_list = get_element_list(atoms)
-    for i in range(len(atoms)):
-        if atoms.get_chemical_formula() == 'Si2':
-            assert atoms.symbols[i] == element_list[0]
-            assert len(element_list) == 1
-        else:
-            assert atoms.symbols[i] == element_list[i]
-            assert len(element_list) == len(atoms)
-
-
-@pytest.mark.parametrize('hof', [-1, -2])
-@pytest.mark.ci
-def test_get_adjusted_chemical_potentials(hof):
-    from asr.charge_neutrality import (get_adjusted_chemical_potentials,
-                                       get_element_list)
-    from .materials import BN
-
-    atoms = BN.copy()
-    element_list = get_element_list(atoms)
-
-    for element in element_list:
-        chempot = get_adjusted_chemical_potentials(atoms, hof, element)
-        for symbol in chempot:
-            if symbol == element:
-                assert chempot[f'{symbol}'] == pytest.approx(hof)
-            else:
-                assert chempot[f'{symbol}'] == pytest.approx(0)
-
-
-@pytest.mark.parametrize('hof', [-2, -1.5, -0.75])
-@pytest.mark.parametrize('element', ['B', 'N'])
-@pytest.mark.parametrize('defect', ['v_N', 'v_B', 'N_B'])
-@pytest.mark.ci
-def test_adjust_formation_energies(hof, element, defect):
+def test_adjust_formation_energies(defect):
     from asr.charge_neutrality import adjust_formation_energies
-    from .materials import BN
+    # from asr.defect_symmetry import DefectInfo
+    # from .materials import BN
 
-    host = BN.copy()
     defectdict = {f'{defect}': [(0, 0), (0.5, 1)]}
-
-    adjusted_defectdict = adjust_formation_energies(host, defectdict, element, hof)
-    add = defect.split('_')[0]
-    remove = defect.split('_')[1]
-    if add == element:
-        offset = -hof
-    elif remove == element:
-        offset = hof
-    else:
-        offset = 0
+    adjusted_defectdict = adjust_formation_energies(defectdict, mu_ref)
+    if defect == 'v_N':
+        offset = mu_ref['N']
+    elif defect == 'v_B':
+        offset = mu_ref['B']
+    elif defect == 'N_B':
+        offset = mu_ref['B'] - mu_ref['N']
+    elif defect == 'N_B.v_N.0-3':
+        offset = mu_ref['B']
     for i in range(len(defectdict[f'{defect}'])):
         assert adjusted_defectdict[f'{defect}'][i][0] == pytest.approx(
             defectdict[f'{defect}'][i][0] + offset)
@@ -132,18 +79,29 @@ def test_convert_concentration_units(zsize, conc):
         assert True
 
 
+@pytest.mark.parametrize('atoms', std_test_materials[:2])
+@pytest.mark.parametrize('conc_in', [0, 1, 1e-4, -2e10])
+@pytest.mark.ci
+def test_double_convert_concentration_units(conc_in, atoms):
+    conc_cm = convert_concentration_units(conc_in, atoms)
+    conc_sc = convert_concentration_units(conc_cm, atoms, invert=True)
+
+    assert conc_sc == pytest.approx(conc_in)
+
+
 @pytest.mark.parametrize('p0', [1e3, 1e-4])
 @pytest.mark.parametrize('n0', [1e3, 2.3e2])
+@pytest.mark.parametrize('ni', [0, 1e5, -1e5])
 @pytest.mark.ci
-def test_calculate_delta(p0, n0):
+def test_calculate_delta(p0, n0, ni):
     from asr.charge_neutrality import (calculate_delta,
                                        check_delta_zero)
 
     conc_list = [1e-2, 2e-2, 2e-2]
     charge_list = [0, 1, -1]
 
-    delta = calculate_delta(conc_list, charge_list, n0, p0)
-    ref_delta = n0 - p0
+    delta = calculate_delta(conc_list, charge_list, n0, p0, ni)
+    ref_delta = n0 - p0 + ni
 
     assert delta == pytest.approx(ref_delta)
     if delta == pytest.approx(0):

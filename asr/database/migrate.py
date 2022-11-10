@@ -22,7 +22,7 @@ from asr.utils import timed_print
 
 
 def collapse_database(databasein: str, databaseout: str) -> None:
-    """Keep first class materials in databasein, add children data and write to databaseout.
+    """Keep first class materials in databasein, add child data writing to databaseout.
 
     Take a database with a subset of materials that have been marked as
     "first_class_material"=True and use the children information on these rows

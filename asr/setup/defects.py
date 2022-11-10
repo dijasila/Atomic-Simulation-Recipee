@@ -285,7 +285,7 @@ def create_vacancies(structure, pristine, eq_pos, charge_states, base_id):
             vacancy.pop(i)
             # rattle defect structure to not get stuck in a saddle point
             vacancy.rattle()
-            string = f'defects.{base_id}.v_{sitename}'
+            string = f'defects.{base_id}.v_{sitename}.{i}'
             charge_dict = get_charge_dict(charge_states, defect=vacancy)
             defect_dict[string] = charge_dict
         finished_list.append(eq_pos[i])
@@ -562,7 +562,7 @@ def create_substitutional(structure, pristine, eq_pos,
                     defect[i].symbol = element
                     # rattle defect structure to not get stuck in a saddle point
                     defect.rattle()
-                    string = f'defects.{base_id}.{element}_{sitename}'
+                    string = f'defects.{base_id}.{element}_{sitename}.{i}'
                     charge_dict = get_charge_dict(charge_states, defect=defect)
                     defect_dict[string] = charge_dict
             finished_list.append(eq_pos[i])

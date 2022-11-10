@@ -24,17 +24,14 @@ def test_get_defect_info(asr_tmpdir, defecttype, defectkind):
     def get_defect_path(defecttype, defectkind):
         return Path(f'defects.XXX_000.{defecttype}_{defectkind}/charge_0')
     path = get_defect_path(defecttype, defectkind)
-    defectinfo_from_path = DefectInfo(defectpath=path)
-    defectinfo_from_input = DefectInfo(defecttype=defecttype, defectkind=defectkind)
-
-    for defectinfo in [defectinfo_from_path, defectinfo_from_input]:
-        ref_defecttype, ref_defectkind = defectinfo.get_defect_type_and_kind()
-        assert ref_defecttype == defecttype
-        assert ref_defectkind == defectkind
+    defectinfo = DefectInfo(defectpath=path)
+    assert [f'{defecttype}_{defectkind}'] == defectinfo.names
+    assert [0] == defectinfo.specs
+    for name in defectinfo.names:
         if defecttype == 'v':
-            assert defectinfo.is_vacancy
+            assert defectinfo.is_vacancy(name)
         else:
-            assert not defectinfo.is_vacancy
+            assert not defectinfo.is_vacancy(name)
 
 
 @pytest.mark.ci
@@ -47,21 +44,32 @@ def test_get_supercell_shape(asr_tmpdir):
             assert N == min(i, j)
 
 
-@pytest.mark.parametrize('is_vacancy', [True, False])
+@pytest.mark.parametrize('tokens',
+                         ['v_N.Se_B.1-2',
+                          'v_N.v_B.v_X.0-3-4',
+                          'Se_B', 'v_S'])
 @pytest.mark.ci
-def test_conserved_atoms(is_vacancy):
+def test_number_of_vacancies(tokens):
+    tokenlist = tokens.split('.')
+    nvacancies = sum(token.startswith('v') for token in tokenlist)
+
+    defectinfo = DefectInfo(defecttoken=tokens)
+    assert nvacancies == defectinfo.number_of_vacancies
+
+
+@pytest.mark.parametrize('Nvac', range(5))
+@pytest.mark.ci
+def test_conserved_atoms(Nvac):
     atoms = BN.copy()
     for i in range(2, 10):
         for j in range(len(atoms) * i):
             supercell = atoms.repeat((i, i, 1))
-            if is_vacancy:
-                supercell.pop(j)
-            else:
-                supercell.symbols[j] = 'X'
+            for k in range(Nvac):
+                supercell.pop(0)
             assert conserved_atoms(supercell,
                                    atoms,
                                    i,
-                                   is_vacancy)
+                                   Nvac)
 
 
 @pytest.mark.parametrize('sc_size', [1, 2, 3, 4, 5])
@@ -78,25 +86,26 @@ def test_compare_structures(sc_size):
     assert len(indices) == sc_size * sc_size * len(atoms) - 2
 
 
-@pytest.mark.parametrize('defecttype', ['v', 'S'])
-@pytest.mark.parametrize('defectkind', ['Te', 'W'])
+@pytest.mark.parametrize('defecttoken',
+                         ['v_Mo',
+                          'v_N.Se_S.0-1',
+                          'v_Se.v_Se.v_X.2-3-4',
+                          'v_B.S_Mo.Te_Se.v_N.5-0-1-2'])
 @pytest.mark.ci
-def test_return_defect_coordinates(defecttype, defectkind):
+def test_return_defect_coordinates(defecttoken):
     atoms = BN.copy()
     supercell = atoms.repeat((3, 3, 1))
-    defectinfo = DefectInfo(defecttype=defecttype, defectkind=defectkind)
+    defectinfo = DefectInfo(defecttoken=defecttoken)
+    reference = defecttoken.split('.')
+    if len(reference) == 1:
+        index = 0
+    else:
+        index = int(reference[-1].split('-')[0])
+    position = return_defect_coordinates(
+        supercell, defectinfo)
+    ref_position = supercell.get_positions()[index]
 
-    for i in range(len(atoms)):
-        system = supercell.copy()
-        if defecttype == 'v':
-            system.pop(i)
-        else:
-            system.symbols[i] = defecttype
-        ref_position = supercell.get_positions()[i]
-        position = return_defect_coordinates(
-            system, atoms, supercell, defectinfo)
-
-        assert position == pytest.approx(ref_position)
+    assert position == pytest.approx(ref_position)
 
 
 @pytest.mark.ci

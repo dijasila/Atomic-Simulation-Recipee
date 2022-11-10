@@ -171,7 +171,7 @@ class ItemAttributeSequence:
 
 @dataclass  # type: ignore
 class Change(abc.ABC):
-    """Abstract class that represent a change of a single attribute/item between records.
+    """Abstract class representing change of attribute/item between records.
 
     Attributes
     ----------

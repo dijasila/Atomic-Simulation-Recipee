@@ -68,7 +68,7 @@ def webpanel(result, context):
                         in enumerate(zip(atoms.symbols, result.magmoms))]
         magmoms_table = {'type': 'table',
                          'header': ['Atom index', 'Atom type',
-                                    'Local magnetic moment (au)'],
+                                    'Local magnetic moment (μ<sub>B</sub>)'],
                          'rows': magmoms_rows}
 
         xcname = context.xcname

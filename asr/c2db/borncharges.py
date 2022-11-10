@@ -12,6 +12,12 @@ from asr.core import (
 from asr.database.browser import make_panel_description, href, describe_entry
 
 
+reference = """\
+M. N. Gjerding et al. Efficient Ab Initio Modeling of Dielectric Screening
+in 2D van der Waals Materials: Including Phonons, Substrates, and Doping,
+J. Phys. Chem. C 124 11609 (2020)"""
+
+
 panel_description = make_panel_description(
     """The Born charge of an atom is defined as the derivative of the static
 macroscopic polarization w.r.t. its displacements u_i (i=x,y,z). The
@@ -21,10 +27,7 @@ evaluation of the first moment of the electron density. The Born charge is
 obtained as a finite difference of the polarization for displaced atomic
 configurations.  """,
     articles=[
-        href("""M. N. Gjerding et al. Efficient Ab Initio Modeling of Dielectric Screening
-in 2D van der Waals Materials: Including Phonons, Substrates, and Doping,
-J. Phys. Chem. C 124 11609 (2020)""",
-             'https://doi.org/10.1021/acs.jpcc.0c01635')
+        href(reference, 'https://doi.org/10.1021/acs.jpcc.0c01635')
     ]
 )
 

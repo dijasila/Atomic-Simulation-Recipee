@@ -131,26 +131,6 @@ def get_wfs_results(calc, state, spin, eref):
         energy=energy)
 
 
-def return_defect_index(defectinfo, primitive, structure):
-    """Return the index of the present defect."""
-    deftype, defpos = defectinfo.get_defect_type_and_kind()
-    is_vacancy = defectinfo.is_vacancy
-
-    found_defect = False
-    for i in range(len(primitive)):
-        if not (primitive.symbols[i]
-                == structure.symbols[i]):
-            label = i
-            found_defect = True
-            break
-
-    assert found_defect, ("Didn't find the point defect in "
-                          "the structure. Please check input "
-                          "structures.")
-
-    return label, is_vacancy
-
-
 def get_reference_index(index, atoms):
     """Get index of atom furthest away from the atom i."""
     from ase.geometry import get_distances
@@ -220,7 +200,8 @@ def return_gapstates(calc_def):
 
     p = Path('.')
     defectinfo = DefectInfo(defectpath=p)
-    def_index, is_vacancy = return_defect_index(defectinfo, primitive, structure)
+    def_index = defectinfo.specs[0]
+    is_vacancy = defectinfo.is_vacancy(defectinfo.names[0])
 
     # get calculators and atoms for pristine and defect calculation
     try:

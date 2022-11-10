@@ -2,7 +2,8 @@
 import numpy as np
 from ase import Atoms
 from asr.c2db.gs import calculate as gscalculate
-from asr.core import command, ASRResult, prepare_result, atomsopt, calcopt
+from asr.core import (command, ASRResult, prepare_result, atomsopt,
+                      calcopt, option)
 from asr.database.browser import fig, make_panel_description, describe_entry
 
 
@@ -121,9 +122,11 @@ class Result(ASRResult):
 @command('asr.c2db.fermisurface')
 @atomsopt
 @calcopt
+@option('--shift', help='Shift of Fermi level in eV.', type=float)
 def main(
         atoms: Atoms,
         calculator: dict = gscalculate.defaults.calculator,
+        shift: float = 0.0,
 ) -> Result:
     from asr.utils.gpw2eigs import calc2eigs
     from gpaw.kpt_descriptor import to1bz
@@ -145,6 +148,7 @@ def main(
         theta=theta, phi=phi,
         symmetry_tolerance=1e-2,
     )
+    ef += shift
     eigs_mk = eigs_km.T
     eigs_mk = eigs_mk - ef
     calc = res.calculation.load()

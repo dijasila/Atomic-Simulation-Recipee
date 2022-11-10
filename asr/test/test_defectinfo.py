@@ -32,7 +32,9 @@ def test_get_primitive_pristine_folderpaths(pristine):
         assert not pristine
 
 
-@pytest.mark.parametrize('defect', ['v_Mo', 'v_S', 'O_S'])
+@pytest.mark.parametrize('defect', ['v_Mo', 'v_S',
+                                    'B_N.Se_N.0-3',
+                                    'v_Mo.v_S.5-6'])
 @pytest.mark.parametrize('charge', [-1, 0, 1, 4])
 @pytest.mark.ci
 def test_get_defectinfo_from_path(defect, charge):

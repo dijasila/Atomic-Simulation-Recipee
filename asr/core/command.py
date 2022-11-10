@@ -331,6 +331,7 @@ def get_recipe_module_names():
     # Find all modules containing recipes
     asrfolder = Path(__file__).parent.parent
     folders_with_recipes = [asrfolder / '.',
+                            asrfolder / 'c2db',
                             asrfolder / 'setup',
                             asrfolder / 'database',
                             asrfolder / 'c2db']

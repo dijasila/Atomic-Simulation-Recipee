@@ -89,7 +89,7 @@ def webpanel(result, row, key_descriptions):
     if result.R_nn is not None:
         defecttable['rows'].extend(
             [[R_nn, f'{result.R_nn:.2f} Å']])
-    if show_conc:
+    if show_conc and defect_name != 'pristine':
         defecttable['rows'].extend(conc_row)
     if uid:
         basictable['rows'].extend(
@@ -160,7 +160,7 @@ def main(structurefile: str = 'structure.json',
 
     # collect all relevant paths for defect info extraction
     primitivepath, pristinepath = get_primitive_pristine_folderpaths(
-        pristine, p)
+        p, pristine)
 
     # obtain defectname and chargestate string
     if pristine:
@@ -215,7 +215,7 @@ def main(structurefile: str = 'structure.json',
 
 def get_defectinfo_from_path(path):
     defectinfo = DefectInfo(defectpath=path)
-    defectname = defectinfo.defectname
+    defectname = defectinfo.defecttoken
     charge = get_charge_from_folder(path)
     chargestate = f'(charge {charge})'
 

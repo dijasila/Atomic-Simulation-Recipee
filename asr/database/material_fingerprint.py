@@ -41,6 +41,10 @@ def get_uid_of_atoms(atoms, hash):
 @command(module='asr.database.material_fingerprint')
 @atomsopt
 def main(atoms: Atoms) -> ASRResult:
+    return fingerprint(atoms)
+
+
+def fingerprint(atoms):
     hash = get_hash_of_atoms(atoms)
     uid = get_uid_of_atoms(atoms, hash)
     results = {'asr_id': hash,

@@ -254,9 +254,11 @@ class Result(ASRResult):
 @calcopt
 def main(
         atoms: Atoms,
-        calculator: dict = gscalculate.defaults.calculator,
+        calculator: dict = {**gscalculate.defaults.calculator,
+                            'mixer': {'method': 'sum'}},
 ) -> Result:
     """Extract Heisenberg parameters."""
+    # MixerSum is more stable towards finding the desired magnetic state
     calculate(
         atoms=atoms,
         calculator=calculator,

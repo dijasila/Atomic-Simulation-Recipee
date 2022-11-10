@@ -1,6 +1,7 @@
 import typing
 from asr.core import get_recipes
 from asr.c2db.dimensionality import get_dimtypes
+from asr.c2db.labels import label_explanation
 
 
 KeyDescriptions = typing.Dict[str, typing.Tuple[str, str, str]]
@@ -129,7 +130,7 @@ key_descriptions = {
         " !DOS at ef! [states/(eV * unit cell)]",
     },
     "phonons": {
-        "minhessianeig": "KVP: Minimum eigenvalue of Hessian [`eV/Å²`]",
+        "minhessianeig": "KVP: Minimum eigenvalue of Hessian [eV/Å²]",
         "dynamic_stability_phonons": "KVP: Phonon dynamic stability (low/high)",
     },
     "plasmafrequency": {
@@ -213,10 +214,14 @@ key_descriptions = {
         'emass_cb_dir3':
         'KVP: Conduction band effective mass, direction 3 [`m_e`]',
     },
+    "c2db.labels": {
+        "origin": f"KVP: {label_explanation}"
+    },
     "database.fromtree": {
         "folder": "KVP: Path to collection folder",
     }
 }
+
 
 # Dimensionality key descrioptions:
 for dimtype in get_dimtypes():
