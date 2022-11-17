@@ -136,7 +136,6 @@ def main(gs: str = 'gs.gpw', kptdensity: float = 20.0, ecut: float = 50.0,
             nblocks = world.size // 2
         dfkwargs.update({
             'nblocks': nblocks,
-            'pbc': pbc,
             'integrationmode': 'tetrahedron integration',
             'truncation': '2D'
         })
@@ -164,13 +163,13 @@ def main(gs: str = 'gs.gpw', kptdensity: float = 20.0, ecut: float = 50.0,
 
         df = DielectricFunction('es.gpw', **dfkwargs)
         alpha0x, alphax = df.get_polarizability(
-            q_c=[0, 0, 0], direction='x', pbc=pbc, filename=None,
+            q_c=[0, 0, 0], direction='x', filename=None,
             xc=xc)
         alpha0y, alphay = df.get_polarizability(
-            q_c=[0, 0, 0], direction='y', pbc=pbc, filename=None,
+            q_c=[0, 0, 0], direction='y', filename=None,
             xc=xc)
         alpha0z, alphaz = df.get_polarizability(
-            q_c=[0, 0, 0], direction='z', pbc=pbc, filename=None,
+            q_c=[0, 0, 0], direction='z', filename=None,
             xc=xc)
 
         plasmafreq_vv = df.chi0.plasmafreq_vv

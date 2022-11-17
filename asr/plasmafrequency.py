@@ -86,8 +86,7 @@ def main(tetra: bool = True) -> Result:
                   'eta': 0.05,
                   'domega0': 0.2,
                   'integrationmode': 'tetrahedron integration',
-                  'ecut': 1,
-                  'pbc': [True, True, False]}
+                  'ecut': 1}
     else:
         kwargs = {'truncation': '2D',
                   'eta': 0.05,
@@ -97,7 +96,6 @@ def main(tetra: bool = True) -> Result:
     try:
         df = DielectricFunction('es_plasma.gpw', **kwargs)
         df.get_polarizability(q_c=[0, 0, 0], direction='x',
-                              pbc=[True, True, False],
                               filename=None)
     finally:
         world.barrier()
