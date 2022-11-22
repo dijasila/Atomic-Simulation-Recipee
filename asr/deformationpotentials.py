@@ -12,12 +12,13 @@ The deformation potentials represent the energy shifts of the
 bottom of the conduction band (CB) and the top of the valence band
 (VB) at a given k-point, under an applied strain.
 
-The panel shows the VB and CB deformation potentials at the
-high-symmetry k-points, subdivided into the different strain
-components. If the VBM and/or the CBM fall at any of the
-special points, an asterisk is added to the k-point name.
-If they are found at any other k-point, they are added to the list
-as 'k<sub>VBM</sub>' / 'k<sub>VBM</sub>' / 'k<sub>VBM/CBM</sub>'.
+The two tables at the top show the deformation potentials for the
+valence band (D<sub>VB</sub>) and conduction band (D<sub>CB</sub>)
+at the high-symmetry k-points, subdivided into the different strain
+components. If the VBM and/or the CBM are found at any other k-point,
+they are added to the list as
+'k<sub>VBM</sub>' / 'k<sub>VBM</sub>' / 'k<sub>VBM/CBM</sub>'.
+The table on the right shows the band gap deformation potentials.
 
 All the values are calculated with spin-orbit coupling.
 """
@@ -103,39 +104,63 @@ def webpanel(result, row, key_descriptions):
     defpots = result['deformation_potentials_soc'].copy()
     columnlabels = ['xx', 'yy', 'xy']
 
-    dp_gap = defpots.pop('Band Gap')
-    dp_list = []
-    dp_labels = []
-    add_to_bottom = []
+    dp_gap = defpots.pop('gap')
+    dp_list_vb = []
+    dp_list_cb = []
+    add_to_bottom_vb = []
+    add_to_bottom_cb = []
+    dp_labels_cb = []
+    dp_labels_vb = []
+
     for kpt in defpots:
-        name = get_basename(kpt)
-        for band, edge in zip(['VB', 'CB'], ['VBM', 'CBM']):
+        dp_labels = []
+        label = get_basename(kpt)
+        for band, table, bottom, lab in zip(
+                ['VB', 'CB'],
+                [dp_list_vb, dp_list_cb],
+                [add_to_bottom_vb, add_to_bottom_cb],
+                [dp_labels_vb, dp_labels_cb]):
             row = get_table_row(kpt, band, defpots)
-            label = name + f' ({band})'
             if 'k' in label:
-                add_to_bottom.append((label, row))
+                bottom.append((label, row))
                 continue
-            if edge in kpt:
-                label += ' *'
-            dp_labels.append(label)
-            dp_list.append(row)
+            lab.append(label)
+            table.append(row)
 
-    for label, row in add_to_bottom:
-        dp_labels.append(label)
-        dp_list.append(row)
+    for label, row in add_to_bottom_vb:
+        dp_list_vb.append(row)
+        dp_labels_vb.append(label)
+    for label, row in add_to_bottom_cb:
+        dp_list_cb.append(row)
+        dp_labels_cb.append(label)
+
     dp_labels.append('Band Gap')
-    dp_list.append([dp_gap[comp] for comp in columnlabels])
+    dp_list_gap = [[dp_gap[comp] for comp in ['xx', 'yy', 'xy']]]
 
-    dp_table = matrixtable(
-        dp_list,
+    dp_table_vb = matrixtable(
+        dp_list_vb,
         digits=2,
-        title=f'D (eV)',
+        title=f'D<sub>VB</sub> (eV)',
         columnlabels=columnlabels,
-        rowlabels=dp_labels
+        rowlabels=dp_labels_vb
+    )
+    dp_table_cb = matrixtable(
+        dp_list_cb,
+        digits=2,
+        title=f'D<sub>CB</sub> (eV)',
+        columnlabels=columnlabels,
+        rowlabels=dp_labels_cb
+    )
+    dp_table_gap = matrixtable(
+        dp_list_gap,
+        digits=2,
+        title=f'',
+        columnlabels=columnlabels,
+        rowlabels=['Band Gap']
     )
     panel = WebPanel(
         description,
-        columns=[[dp_table]],
+        columns=[[dp_table_vb, dp_table_gap], [dp_table_cb]],
         sort=4
     )
     return [panel]
@@ -143,9 +168,6 @@ def webpanel(result, row, key_descriptions):
 
 @prepare_result
 class Result(ASRResult):
-    kpts: np.ndarray
-    deformation_potentials_soc: object
-    deformation_potentials_nosoc: object
 
     deformation_potentials_nosoc: typing.Dict[str, float]
     deformation_potentials_soc: typing.Dict[str, float]
@@ -163,11 +185,6 @@ class Result(ASRResult):
     }
 
     formats = {"ase_webpanel": webpanel}
-
-    key_descriptions = dict(
-        kpts='K-points',
-        deformation_potentials_soc='Deformation potentials including SOC.',
-        deformation_potentials_nosoc='Deformation potentials without SOC.')
 
 
 soclabels = {'deformation_potentials_nosoc': False,
@@ -282,7 +299,7 @@ def main(strain: float = 1.0, all_ibz: bool = False) -> Result:
             if 'CBM' in kpt:
                 edge_states['CBM'] = get_table_row(kpt, 'CB', result)
         dp_gap = edge_states['CBM'] - edge_states['VBM']
-        results[key]['Band Gap'] = {
+        results[key]['gap'] = {
             key: comp for key, comp in zip(['xx', 'yy', 'xy'], dp_gap)
         }
 
