@@ -54,22 +54,21 @@ def asr_tmpdir(request, tmp_path_factory):
 def _get_webcontent(name='database.db'):
     from asr.database.fromtree import main as fromtree
     from asr.database.material_fingerprint import main as mf
+    from asr.database.app import setup_app
+
     mf()
     fromtree(recursive=True)
     content = ""
-    from asr.database import app as appmodule
-    from pathlib import Path
-    if world.rank == 0:
-        from asr.database.app import app, initialize_project, projects
 
-        tmpdir = Path("tmp/")
-        tmpdir.mkdir()
-        appmodule.tmpdir = tmpdir
-        initialize_project(name)
+    if world.rank == 0:
+        webapp = setup_app()
+        webapp.initialize_project(name)
+
+        app = webapp.app
 
         app.testing = True
         with app.test_client() as c:
-            project = projects["database.db"]
+            project = webapp.projects["database.db"]
             db = project["database"]
             uid_key = project["uid_key"]
             row = db.get(id=1)

@@ -13,32 +13,11 @@ from ase import Atoms
 from ase.calculators.calculator import kptdensity2monkhorstpack
 from ase.geometry import cell_to_cellpar
 from ase.formula import Formula
+from ase.db.app import new_app
 
 import asr
 from asr.core import (command, option, argument, ASRResult,
                       decode_object, UnknownDataFormat)
-
-
-def import_dbapp_from_ase():
-    # Compatibility fix since ASE is moving away from global variables.
-    try:
-        from ase.db.app import DBApp
-    except ImportError:
-        from ase.db.app import app, projects
-        return app, projects
-
-    dbapp = DBApp()
-    return dbapp.flask, dbapp.projects
-
-
-# XXX Should not be using global variables!
-app, projects = import_dbapp_from_ase()
-
-
-tmpdir = Path(tempfile.mkdtemp(prefix="asr-app-"))  # used to cache png-files
-
-path = Path(asr.__file__).parent.parent
-app.jinja_loader.searchpath.append(str(path))
 
 
 def create_key_descriptions(db=None, extra_kvp_descriptions=None):
@@ -117,19 +96,78 @@ class Summary:
                                          for c in self.constraints)
 
 
-def setup_app():
+class WebApp:
+    def __init__(self, app, projects, tmpdir):
+        self.app = app
+        self.tmpdir = tmpdir
+        self.projects = projects
 
-    @app.route("/")
-    def index():
-        return render_template(
-            "asr/database/templates/projects.html",
-            projects=sorted(
-                [
+    def initialize_project(self, database, extra_kvp_descriptions=None,
+                           pool=None):
+        from asr.database import browser
+        from functools import partial
+
+        db = connect(database, serial=True)
+        metadata = db.metadata
+        name = metadata.get("name", Path(database).name)
+
+        tmpdir = self.tmpdir
+        # Make temporary directory
+        (tmpdir / name).mkdir()
+
+        def layout(*args, **kwargs):
+            return browser.layout(*args, pool=pool, **kwargs)
+
+        metadata = db.metadata
+
+        project = {
+            "name": name,
+            "title": metadata.get("title", name),
+            "key_descriptions": create_key_descriptions(db,
+                                                        extra_kvp_descriptions),
+            "uid_key": metadata.get("uid", "uid"),
+            "database": db,
+            "handle_query_function": handle_query,
+            "row_to_dict_function": partial(
+                row_to_dict, layout_function=layout, tmpdir=tmpdir,
+            ),
+            "default_columns": metadata.get("default_columns", ["formula", "uid"]),
+            "table_template": str(
+                metadata.get(
+                    "table_template", "asr/database/templates/table.html",
+                )
+            ),
+            "search_template": str(
+                metadata.get(
+                    "search_template", "asr/database/templates/search.html"
+                )
+            ),
+            "row_template": str(
+                metadata.get("row_template", "asr/database/templates/row.html")
+            ),
+        }
+
+        self.projects[name] = project
+
+
+def setup_app(route_slash=True):
+    # used to cache png-files:
+    tmpdir = Path(tempfile.mkdtemp(prefix="asr-app-"))
+
+    path = Path(asr.__file__).parent.parent
+    projects = {}
+    app = new_app(projects)
+    app.jinja_loader.searchpath.append(str(path))
+
+    if route_slash:
+        @app.route("/")
+        def index():
+            return render_template(
+                "asr/database/templates/projects.html",
+                projects=sorted([
                     (name, proj["title"], proj["database"].count())
                     for name, proj in projects.items()
-                ]
-            ),
-        )
+                ]))
 
     @app.route("/<project>/file/<uid>/<name>")
     def file(project, uid, name):
@@ -137,12 +175,17 @@ def setup_app():
         path = tmpdir / f"{project}/{uid}-{name}"  # XXXXXXXXXXX
         return send_file(str(path))
 
-    setup_data_endpoints()
+    webapp = WebApp(app, projects, tmpdir)
+    setup_data_endpoints(webapp)
+    return webapp
 
 
-def setup_data_endpoints():
+def setup_data_endpoints(webapp):
     """Set endpoints for downloading data."""
     from ase.io.jsonio import MyEncoder
+
+    projects = webapp.projects
+    app = webapp.app
     app.json_encoder = MyEncoder
 
     @app.route('/<project_name>/row/<uid>/all_data')
@@ -168,8 +211,9 @@ def setup_data_endpoints():
                                       .format(uid_key=uid_key, uid=uid))
         sorted_data = {key: value for key, value
                        in sorted(row.data.items(), key=lambda x: x[0])}
-        return render_template('asr/database/templates/data.html',
-                               data=sorted_data, uid=uid, project_name=project_name)
+        return render_template(
+            'asr/database/templates/data.html',
+            data=sorted_data, uid=uid, project_name=project_name)
 
     @app.route('/<project_name>/row/<uid>/data/<filename>')
     def get_row_data_file(project_name: str, uid: str, filename: str):
@@ -199,14 +243,13 @@ def setup_data_endpoints():
                                       .format(uid_key=uid_key, uid=uid))
         return jsonify(row.data.get(filename))
 
+    @app.template_filter()
+    def asr_sort_key_descriptions(value):
+        """Sort column drop down menu."""
+        def sort_func(item):
+            return item[1][1]
 
-@app.template_filter()
-def asr_sort_key_descriptions(value):
-    """Sort column drop down menu."""
-    def sort_func(item):
-        return item[1][1]
-
-    return sorted(value.items(), key=sort_func)
+        return sorted(value.items(), key=sort_func)
 
 
 def handle_query(args):
@@ -221,49 +264,6 @@ def row_to_dict(row, project, layout_function, tmpdir):
                 key_descriptions=project['key_descriptions'],
                 prefix=str(tmpdir / f'{project_name}/{uid}-'))
     return s
-
-
-def initialize_project(database, extra_kvp_descriptions=None, pool=None):
-    from asr.database import browser
-    from functools import partial
-
-    db = connect(database, serial=True)
-    metadata = db.metadata
-    name = metadata.get("name", Path(database).name)
-
-    # Make temporary directory
-    (tmpdir / name).mkdir()
-
-    def layout(*args, **kwargs):
-        return browser.layout(*args, pool=pool, **kwargs)
-
-    metadata = db.metadata
-    projects[name] = {
-        "name": name,
-        "title": metadata.get("title", name),
-        "key_descriptions": create_key_descriptions(db,
-                                                    extra_kvp_descriptions),
-        "uid_key": metadata.get("uid", "uid"),
-        "database": db,
-        "handle_query_function": handle_query,
-        "row_to_dict_function": partial(
-            row_to_dict, layout_function=layout, tmpdir=tmpdir,
-        ),
-        "default_columns": metadata.get("default_columns", ["formula", "uid"]),
-        "table_template": str(
-            metadata.get(
-                "table_template", "asr/database/templates/table.html",
-            )
-        ),
-        "search_template": str(
-            metadata.get(
-                "search_template", "asr/database/templates/search.html"
-            )
-        ),
-        "row_template": str(
-            metadata.get("row_template", "asr/database/templates/row.html")
-        ),
-    }
 
 
 @command()
@@ -289,10 +289,12 @@ def main(databases: List[str], host: str = "0.0.0.0",
 
 
 def _main(databases, host, test, extra_kvp_descriptions, pool):
-    for database in databases:
-        initialize_project(database, extra_kvp_descriptions, pool)
+    webapp = setup_app()
+    projects = webapp.projects
+    app = webapp.app
 
-    setup_app()
+    for database in databases:
+        webapp.initialize_project(database, extra_kvp_descriptions, pool)
 
     if test:
         import traceback
@@ -332,7 +334,7 @@ def _main(databases, host, test, extra_kvp_descriptions, pool):
                             fid.write(exc)
                             print(exc)
     else:
-        app.run(host=host, debug=True)
+        webapp.app.run(host=host, debug=True)
 
 
 if __name__ == "__main__":
