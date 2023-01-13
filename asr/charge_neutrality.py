@@ -651,7 +651,7 @@ def convert_concentration_units(conc, atoms, invert=False):
     if dim == 1:
         raise NotImplementedError('Not implemented for 1D structures!')
     elif dim == 2:
-        z = atoms.get_cell_lengths_and_angles()[2]
+        z = atoms.cell.lengths()[2]
         volume = volume / z
     elif dim == 3:
         volume = volume

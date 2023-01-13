@@ -141,14 +141,14 @@ def calculate(d: float = 0.05, fsname: str = 'phonons',
     phonon = Phonopy(phonopy_atoms, supercell)
 
     phonon.generate_displacements(distance=d, is_plusminus=True)
-    # displacements = phonon.get_displacements()
-    displaced_sc = phonon.get_supercells_with_displacements()
+    displaced_sc = phonon.supercells_with_displacements
 
     from ase.atoms import Atoms
     scell = displaced_sc[0]
-    atoms_N = Atoms(symbols=scell.get_chemical_symbols(),
-                    scaled_positions=scell.get_scaled_positions(),
-                    cell=scell.get_cell(),
+
+    atoms_N = Atoms(symbols=scell.symbols,
+                    scaled_positions=scell.scaled_positions,
+                    cell=scell.cell,
                     pbc=atoms.pbc)
 
     for n, cell in enumerate(displaced_sc):
@@ -166,7 +166,7 @@ def calculate(d: float = 0.05, fsname: str = 'phonons',
                 "Wrong supercell size!")
             continue
 
-        atoms_N.set_scaled_positions(cell.get_scaled_positions())
+        atoms_N.set_scaled_positions(cell.scaled_positions)
         atoms_N.calc = calc
         forces = atoms_N.get_forces()
 
@@ -282,7 +282,7 @@ def main(rc: float = None) -> Result:
 
     phonon.generate_displacements(distance=d, is_plusminus=True)
     # displacements = phonon.get_displacements()
-    displaced_sc = phonon.get_supercells_with_displacements()
+    displaced_sc = phonon.supercells_with_displacements
 
     # for displace in displacements:
     #    print("[Phonopy] %d %s" % (displace[0], displace[1:]))
@@ -322,7 +322,7 @@ def main(rc: float = None) -> Result:
         omega_kl[q] = omega_l * THzToEv
 
     R_cN = lattice_vectors(sc)
-    C_N = phonon.get_force_constants()
+    C_N = phonon.force_constants
     C_N = C_N.reshape(len(atoms), len(atoms), np.prod(sc), 3, 3)
     C_N = C_N.transpose(2, 0, 3, 1, 4)
     C_N = C_N.reshape(np.prod(sc), 3 * len(atoms), 3 * len(atoms))
@@ -359,7 +359,7 @@ def main(rc: float = None) -> Result:
     else:
         dynamic_stability = 3
 
-    phi_anv = phonon.get_force_constants()
+    phi_anv = phonon.force_constants
 
     results = {'omega_kl': omega_kl,
                'eigs_kl': eigs_kl,

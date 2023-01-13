@@ -186,7 +186,7 @@ def setup_data_endpoints(webapp):
 
     projects = webapp.projects
     app = webapp.app
-    app.json_encoder = MyEncoder
+    app.json_provider_class = MyEncoder
 
     @app.route('/<project_name>/row/<uid>/all_data')
     def get_all_data(project_name: str, uid: str):

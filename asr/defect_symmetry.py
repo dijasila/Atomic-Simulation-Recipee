@@ -598,7 +598,10 @@ def get_mapped_structure(structure, unrelaxed, primitive, pristine, defectinfo):
 
 def get_spg_symmetry(structure, symprec=0.1):
     """Return the symmetry of a given structure evaluated with spglib."""
-    spg_sym = spg.get_spacegroup(structure, symprec=symprec, symbol_type=1)
+    spgcell = (structure.cell,
+               structure.get_scaled_positions(),
+               structure.numbers)
+    spg_sym = spg.get_spacegroup(spgcell, symprec=symprec, symbol_type=1)
 
     return spg_sym.split('^')[0]
 
