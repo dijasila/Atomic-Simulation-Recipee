@@ -164,8 +164,10 @@ key_descriptions = {
         "cell_area": "KVP: Area of unit-cell [`Å²`]",
         "has_inversion_symmetry": "KVP: Material has inversion symmetry",
         "stoichiometry": "KVP: Stoichiometry",
-        "spacegroup": "KVP: Space group",
-        "spgnum": "KVP: Space group number",
+        "spacegroup": "KVP: Space group (AA stacking)",
+        "spgnum": "KVP: Space group number (AA stacking)",
+        "layergroup": "KVP: Layer group",
+        "lgnum": "KVP: Layer group number",
         "pointgroup": "KVP: Point group",
         "crystal_type": "KVP: Crystal type",
     },
@@ -194,8 +196,8 @@ key_descriptions = {
     "info.json": {
         'class': 'KVP: Material class',
         'doi': 'KVP: Monolayer reported DOI',
-        'icsd_id': 'KVP: Related ICSD id',
-        'cod_id': 'KVP: Related COD id'
+        'icsd_id': 'KVP: ICSD id of parent bulk structure',
+        'cod_id': 'KVP: COD id of parent bulk structure'
     },
     "emasses": {
         'emass_vb_dir1':
