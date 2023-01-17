@@ -82,8 +82,7 @@ def webpanel(result, row, key_descriptions):
     summary = {'title': 'Summary',
                'columns': [[{'type': 'table',
                              'header': ['Stability', ''],
-                             'rows': [row],
-                             'columnwidth': 3}]],
+                             'rows': [row]}]],
                'sort': 1}
     return [panel, summary]
 

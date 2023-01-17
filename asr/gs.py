@@ -185,9 +185,8 @@ def webpanel(result, row, key_descriptions):
             'basic properties of the material.'),
         columns=[[{
             'type': 'table',
-            'header': ['Electronic properties', ''],
+            'header': ['Basic properties', ''],
             'rows': [gap_row],
-            'columnwidth': 3,
         }]],
         plot_descriptions=[{'function': bz_with_band_extremums,
                             'filenames': ['bz-with-gaps.png']}],

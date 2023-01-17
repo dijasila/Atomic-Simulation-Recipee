@@ -74,7 +74,7 @@ def gw_hse_webpanel(result, row, key_descriptions, info, sort):
         rows = [[bandgap_entry, f'{info.gap:0.2f} eV']]
         summary = {'title': 'Summary',
                    'columns': [[{'type': 'table',
-                                 'header': ['Electronic properties', ''],
+                                 'header': ['Basic properties', ''],
                                  'rows': rows}]],
                    'sort': info.summary_sort}
         return [panel, summary]

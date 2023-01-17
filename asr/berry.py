@@ -257,7 +257,7 @@ def webpanel(result, row, key_descriptions):
 
     summary = WebPanel(title='Summary',
                        columns=[[{'type': 'table',
-                                  'header': ['Electronic properties', ''],
+                                  'header': ['Basic properties', ''],
                                   'rows': [datarow]}]])
 
     basicelec = WebPanel(title=f'Basic electronic properties ({xcname})',

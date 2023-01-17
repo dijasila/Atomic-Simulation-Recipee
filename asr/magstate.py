@@ -47,10 +47,12 @@ def webpanel(result, row, key_descriptions):
         )
     )
 
-    rows = [[is_magnetic, row.is_magnetic]]
+    yesno = ['No', 'Yes'][row.is_magnetic]
+
+    rows = [[is_magnetic, yesno]]
     summary = {'title': 'Summary',
                'columns': [[{'type': 'table',
-                             'header': ['Electronic properties', ''],
+                             'header': ['Basic properties', ''],
                              'rows': rows}]],
                'sort': 0}
 

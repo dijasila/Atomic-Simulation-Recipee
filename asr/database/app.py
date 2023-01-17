@@ -37,10 +37,11 @@ def create_key_descriptions(db=None, extra_kvp_descriptions=None):
     if db is not None:
         metadata = db.metadata
         if 'keys' not in metadata:
-            raise KeyError('Missing list of keys for database. '
-                           'To fix this either: run database.fromtree again. '
-                           'or python -m asr.database.set_metadata DATABASEFILE.')
-        keys = metadata.get('keys')
+            warnings.warn(
+                'Missing list of keys for database. '
+                'To fix this either: run database.fromtree again. '
+                'or python -m asr.database.set_metadata DATABASEFILE.')
+        keys = metadata.get('keys', [])
     else:
         keys = list(flatten.keys())
 

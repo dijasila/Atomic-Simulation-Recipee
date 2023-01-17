@@ -25,7 +25,7 @@ def doi(identifier):
     return href(f'doi:{identifier}', f'https://doi.org/{identifier}')
 
 
-def webpanel(result, row, key_descriptions):
+def get_label_tablerow(label):
     from asr.database.browser import describe_entry
 
     lyngby22_link = arxiv('2206.12159')
@@ -91,20 +91,23 @@ Ref: {link}
         'Manti22_pushed': pushed02_22_description,
     }
 
-    label = result.get('label')
     if label in descriptions:
         label = describe_entry(label, descriptions[label])
-    if label is None:
-        return []  # No panels generated
 
-    entryname = describe_entry('Origin', label_explanation)
+    entryname = describe_entry('Structure origin', label_explanation)
+
+    return [entryname, label]
+
+
+def webpanel(result, row, key_descriptions):
+    label = result.get('label')
+    tablerow = get_label_tablerow(label)
 
     panel = {
         'title': 'Summary',
         'columns': [[{
             'type': 'table',
-            'rows': [[entryname, label]],
-            'columnwidth': 4,
+            'rows': [tablerow],
         }]],
     }
     return [panel]
@@ -117,7 +120,18 @@ label_explanation = (
 class LabelResult(ASRResult):
     label: str
     key_descriptions = {'label': label_explanation}
-    formats = {'ase_webpanel': webpanel}
+
+    # We would ordinarily have a web panel for this recipe,
+    # but the powers that be have ordained that the label must be the
+    # last line of the structureinfo table, which means we'll have to
+    # let the structureinfo table take care of this.
+    #
+    # Which is not too unreasonable, except for the overall structure
+    # and hardcodedness of the webpanels.
+    # formats = {'ase_webpanel': webpanel}
+
+    def as_formatted_tablerow(self):
+        return get_label_tablerow(self['label'])
 
 
 @command(module='asr.c2db.labels',

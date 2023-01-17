@@ -139,12 +139,24 @@ def webpanel(result, row, key_descriptions):
         f"ID of a closely related material in the {cod_link}."
     )
 
-    basictable = table(row, 'Structure info', [
+    # Here we are hacking the "label" out of a row without knowing
+    # whether there is a label, or that the "label" recipe exists.
+
+    tablerows = [
         crystal_type, cls, layergroup, lgnum, spacegroup, spgnum, pointgroup,
-        icsd_id, cod_id
-    ], key_descriptions, 2)
-    basictable['columnwidth'] = 4
+        icsd_id, cod_id]
+
+    # The table() function is EXTREMELY illogical.
+    # I can't get it to work when appending another row
+    # to the tablerows list.  Therefore we append rows afterwards.  WTF.
+    basictable = table(row, 'Structure info', tablerows, key_descriptions, 2)
     rows = basictable['rows']
+
+    labelresult = row.data.get('results-asr.c2db.labels.json')
+    if labelresult is not None:
+        tablerow = labelresult.as_formatted_tablerow()
+        rows.append(tablerow)
+
     codid = row.get('cod_id')
     if codid:
         # Monkey patch to make a link
@@ -169,8 +181,7 @@ def webpanel(result, row, key_descriptions):
     panel = {'title': 'Summary',
              'columns': [[basictable,
                           {'type': 'table', 'header': ['Stability', ''],
-                           'rows': [],
-                           'columnwidth': 4}],
+                           'rows': []}],
                          [{'type': 'atoms'}, {'type': 'cell'}]],
              'sort': -1}
     return [panel]
