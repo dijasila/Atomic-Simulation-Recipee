@@ -358,9 +358,9 @@ def main() -> Result:
     info['crystal_type'] = crystal_type
     info['spacegroup'] = sg
     info['spgnum'] = number
-    from ase.db.core import convert_str_to_int_float_or_str, str_represents
+    from ase.db.core import convert_str_to_int_float_bool_or_str, str_represents
     if str_represents(pg):
-        info['pointgroup'] = convert_str_to_int_float_or_str(pg)
+        info['pointgroup'] = convert_str_to_int_float_bool_or_str(pg)
     else:
         info['pointgroup'] = pg
 
