@@ -63,7 +63,7 @@ def spinspiral(calculator: dict = {
     energy = atoms.get_potential_energy()
     if write_gpw and not restart:
         atoms.calc.write(gpwfile)
-    totmom_v, magmom_av = calc.calculation.state.density.calculate_magnetic_moments()
+    totmom_v, magmom_av = calc.dft.state.density.calculate_magnetic_moments()
     gap, _, _ = bandgap(calc)
 
     return {'energy': energy, 'totmom_v': totmom_v,

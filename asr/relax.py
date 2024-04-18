@@ -440,10 +440,12 @@ def main(atoms: Atoms,
     logfile = Path(tmp_atoms_file).with_suffix('.log')
 
     with IOContext() as io:
+        from ase.parallel import world as comm
         # XXX Not so nice to have special cases
         if calculatorname == 'gpaw':
-            calculator['txt'] = io.openfile(txt, mode=open_mode)
-        logfile = io.openfile(logfile, mode=open_mode)
+            calculator['txt'] = io.openfile(txt, mode=open_mode,
+                                            comm=comm)
+        logfile = io.openfile(logfile, mode=open_mode, comm=comm)
         trajectory = io.closelater(Trajectory(tmp_atoms_file, mode=open_mode))
 
         # TODO: Perform actual GPAW computations in a separate process.

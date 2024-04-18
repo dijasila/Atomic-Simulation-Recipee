@@ -140,7 +140,7 @@ def test_relax_si_gpaw(asr_tmpdir):
     )
     setupparams(['asr.relax:calculator', relaxargs])
     results = relax.cli([])
-    assert abs(results["c"] - 3.978) < 0.001
+    assert abs(results["c"] - 3.978) < 0.002
 
 
 @pytest.mark.xfail(

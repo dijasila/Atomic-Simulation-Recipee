@@ -63,10 +63,10 @@ def get_magnetic_moments(atoms):
         moments = atoms.calc.get_property('magmoms', allow_calculation=False)
         return moments
 
-    newGPAW = getattr(atoms.calc, 'calculation', None)
+    newGPAW = getattr(atoms.calc, 'dft', None)
     oldGPAW = getattr(atoms.calc, 'setups', None)
     if newGPAW is not None:
-        _, moments = atoms.calc.calculation.magmoms()
+        _, moments = atoms.calc.dft.magmoms()
     elif oldGPAW is not None:
         _, moments = atoms.calc.density.estimate_magnetic_moments()
     else:
